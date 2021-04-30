@@ -10,7 +10,7 @@ interface Faction {
 	name: string;
 	memberCount: number;
 	serverID: string;
-	roleID: string;
+	roleIDs: string[];
 	note?: string;
 }
 interface SheetData {
@@ -24,6 +24,9 @@ function timestamp() {
 	const str = new Date().toString();
 	const space = str.indexOf(" ") + 1;
 	return str.substring(space, str.indexOf(" ", space + "MMM DD ".length));
+}
+function hasAnyRole(roles: Discord.Collection<string, Discord.Role>, ids: string[]) {
+	return ids.some(id => roles.has(id));
 }
 class Application {
 	framework: FrameworkClient;
@@ -56,7 +59,7 @@ class Application {
 		if (!faction) {
 			faction = {
 				serverID: serverID,
-				roleID: null,
+				roleIDs: [],
 				name: null,
 				memberCount: 0
 			}
@@ -66,9 +69,10 @@ class Application {
 	}
 	async updateMemberCounts(oldMember: Discord.GuildMember | Discord.PartialGuildMember, newMember: Discord.GuildMember) {
 		const faction = await this.factions.get(newMember.guild.id);
-		if (!faction || !faction.roleID || !faction.name) return;
+		// If any of these are true the faction hasnt been setup yet
+		if (!faction || !faction.roleIDs || faction.roleIDs.length == 0 || !faction.name) return;
 		if (
-			oldMember.roles.cache.has(faction.roleID) != newMember.roles.cache.has(faction.roleID)
+			hasAnyRole(oldMember.roles.cache, faction.roleIDs) != hasAnyRole(newMember.roles.cache, faction.roleIDs)
 		) {
 			this.countMembers(faction, newMember.guild);
 		}
@@ -81,7 +85,7 @@ class Application {
 			return;
 		}
 		const count = members.array().reduce((acc, cur) => {
-			return cur.roles.cache.has(faction.roleID) ? acc + 1 : acc
+			return hasAnyRole(cur.roles.cache, faction.roleIDs) ? acc + 1 : acc
 		}, 0);
 		if (faction.memberCount == count) return;
 		this.log.info(`New member count for ${faction.name} of ${count}`);

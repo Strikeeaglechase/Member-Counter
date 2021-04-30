@@ -16,6 +16,9 @@ function timestamp() {
     const space = str.indexOf(" ") + 1;
     return str.substring(space, str.indexOf(" ", space + "MMM DD ".length));
 }
+function hasAnyRole(roles, ids) {
+    return ids.some(id => roles.has(id));
+}
 class Application {
     constructor(framework) {
         this.framework = framework;
@@ -46,7 +49,7 @@ class Application {
             if (!faction) {
                 faction = {
                     serverID: serverID,
-                    roleID: null,
+                    roleIDs: [],
                     name: null,
                     memberCount: 0
                 };
@@ -58,9 +61,10 @@ class Application {
     updateMemberCounts(oldMember, newMember) {
         return __awaiter(this, void 0, void 0, function* () {
             const faction = yield this.factions.get(newMember.guild.id);
-            if (!faction || !faction.roleID || !faction.name)
+            // If any of these are true the faction hasnt been setup yet
+            if (!faction || !faction.roleIDs || faction.roleIDs.length == 0 || !faction.name)
                 return;
-            if (oldMember.roles.cache.has(faction.roleID) != newMember.roles.cache.has(faction.roleID)) {
+            if (hasAnyRole(oldMember.roles.cache, faction.roleIDs) != hasAnyRole(newMember.roles.cache, faction.roleIDs)) {
                 this.countMembers(faction, newMember.guild);
             }
         });
@@ -74,7 +78,7 @@ class Application {
                 return;
             }
             const count = members.array().reduce((acc, cur) => {
-                return cur.roles.cache.has(faction.roleID) ? acc + 1 : acc;
+                return hasAnyRole(cur.roles.cache, faction.roleIDs) ? acc + 1 : acc;
             }, 0);
             if (faction.memberCount == count)
                 return;
